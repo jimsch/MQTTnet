@@ -298,6 +298,10 @@ namespace MQTTnet.Server
                 clientAdapter.Endpoint,
                 clientAdapter.IsSecureConnection,
                 clientAdapter.ClientCertificate);
+#if FOR_JIM
+            context.ClientChannel = clientAdapter;
+            context.ConnectPacket = connectPacket;
+#endif
 
             var connectionValidator = _options.ConnectionValidator;
 

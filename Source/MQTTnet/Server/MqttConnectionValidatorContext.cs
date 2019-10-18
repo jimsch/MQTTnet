@@ -1,5 +1,7 @@
 ﻿using System.Security.Cryptography.X509Certificates;
 using System.Text;
+using MQTTnet.Adapter;
+using MQTTnet.Packets;
 using MQTTnet.Protocol;
 
 namespace MQTTnet.Server
@@ -23,6 +25,11 @@ namespace MQTTnet.Server
             IsSecureConnection = isSecureConnection;
             ClientCertificate = clientCertificate;
         }
+
+// #if FOR_JIM
+        public IMqttChannelAdapter ClientChannel { get; set; }
+        public MqttConnectPacket ConnectPacket { get; set; }
+// #endif
 
         public string ClientId { get; }
 
