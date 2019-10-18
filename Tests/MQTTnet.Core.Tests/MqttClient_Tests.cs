@@ -68,7 +68,7 @@ namespace MQTTnet.Tests
 
                 var replyReceived = false;
 
-                client1.UseApplicationMessageReceivedHandler(async c =>
+                client1.UseApplicationMessageReceivedHandler(c =>
                 {
                     if (c.ApplicationMessage.Topic == "reply")
                     {
@@ -106,6 +106,83 @@ namespace MQTTnet.Tests
 
                 await client.ConnectAsync(new MqttClientOptionsBuilder().WithTcpServer("127.0.0.1", testEnvironment.ServerPort).Build());
                 Assert.IsTrue(client.IsConnected);
+            }
+        }
+
+        [TestMethod]
+        public async Task Reconnect_While_Server_Offline()
+        {
+            using (var testEnvironment = new TestEnvironment())
+            {
+                testEnvironment.IgnoreClientLogErrors = true;
+
+                var server = await testEnvironment.StartServerAsync();
+                var client = await testEnvironment.ConnectClientAsync();
+
+                await Task.Delay(500);
+                Assert.IsTrue(client.IsConnected);
+
+                await server.StopAsync();
+                await Task.Delay(500);
+                Assert.IsFalse(client.IsConnected);
+
+                for (var i = 0; i < 5; i++)
+                {
+                    try
+                    {
+                        await client.ConnectAsync(new MqttClientOptionsBuilder().WithTcpServer("127.0.0.1", testEnvironment.ServerPort).Build());
+                        Assert.Fail("Must fail!");
+                    }
+                    catch
+                    {
+                    }
+                }
+
+                await server.StartAsync(new MqttServerOptionsBuilder().WithDefaultEndpointPort(testEnvironment.ServerPort).Build());
+                await Task.Delay(500);
+
+                await client.ConnectAsync(new MqttClientOptionsBuilder().WithTcpServer("127.0.0.1", testEnvironment.ServerPort).Build());
+                Assert.IsTrue(client.IsConnected);
+            }
+        }
+
+        [TestMethod]
+        public async Task Reconnect_From_Disconnected_Event()
+        {
+            using (var testEnvironment = new TestEnvironment())
+            {
+                testEnvironment.IgnoreClientLogErrors = true;
+
+                var client = testEnvironment.CreateClient();
+
+                var tries = 0;
+                var maxTries = 3;
+
+                client.UseDisconnectedHandler(async e =>
+                {
+                    if (tries >= maxTries)
+                    {
+                        return;
+                    }
+
+                    Interlocked.Increment(ref tries);
+
+                    await Task.Delay(100);
+                    await client.ConnectAsync(new MqttClientOptionsBuilder().WithTcpServer("127.0.0.1", testEnvironment.ServerPort).Build());
+                });
+
+                try
+                {
+                    await client.ConnectAsync(new MqttClientOptionsBuilder().WithTcpServer("127.0.0.1", testEnvironment.ServerPort).Build());
+                    Assert.Fail("Must fail!");
+                }
+                catch
+                {
+                }
+                
+                SpinWait.SpinUntil(() => tries >= maxTries, 10000);
+
+                Assert.AreEqual(maxTries, tries);
             }
         }
 
@@ -155,6 +232,25 @@ namespace MQTTnet.Tests
                     Assert.IsInstanceOfType(exception, typeof(MqttCommunicationException));
                     Assert.IsInstanceOfType(exception.InnerException, typeof(SocketException));
                 }
+            }
+        }
+
+        [TestMethod]
+        public async Task Fire_Disconnected_Event_On_Server_Shutdown()
+        {
+            using (var testEnvironment = new TestEnvironment())
+            {
+                var server = await testEnvironment.StartServerAsync();
+                var client = await testEnvironment.ConnectClientAsync();
+
+                var handlerFired = false;
+                client.UseDisconnectedHandler(e => handlerFired = true);
+
+                await server.StopAsync();
+
+                await Task.Delay(4000);
+
+                Assert.IsTrue(handlerFired);
             }
         }
 
