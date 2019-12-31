@@ -1,4 +1,5 @@
 ﻿using System;
+using MQTTnet.Server.ExtendedAuthenticationExchange;
 
 namespace MQTTnet.Server
 {
@@ -18,6 +19,7 @@ namespace MQTTnet.Server
         IMqttServerUnsubscriptionInterceptor UnsubscriptionInterceptor { get; }
         IMqttServerApplicationMessageInterceptor ApplicationMessageInterceptor { get; }
         IMqttServerClientMessageQueueInterceptor ClientMessageQueueInterceptor { get; }
+        IMqttEnhancedAuthenticationBrokerHandler EnhancedAuthenticationBrokerHandler { get; set; }
 
         MqttServerTcpEndpointOptions DefaultEndpointOptions { get; }
         MqttServerTlsTcpEndpointOptions TlsEndpointOptions { get; }

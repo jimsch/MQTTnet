@@ -141,9 +141,15 @@ namespace MQTTnet.Server
                 // TODO: Change to single thread in SessionManager. Or use SessionManager and stats from KeepAliveMonitor.
                 _keepAliveMonitor.Start(ConnectPacket.KeepAlivePeriod, _cancellationToken.Token);
 
-                await SendAsync(
-                    _channelAdapter.PacketFormatterAdapter.DataConverter.CreateConnAckPacket(connectionValidatorContext)
+                var authPacket = _serverOptions.EnhancedAuthenticationBrokerHandler?.StartChallenge(ConnectPacket, connectionValidatorContext);
+                if (authPacket != null) {
+                    await SendAsync(authPacket).ConfigureAwait(false);
+                }
+                else {
+                    await SendAsync(
+                        _channelAdapter.PacketFormatterAdapter.DataConverter.CreateConnAckPacket(connectionValidatorContext)
                     ).ConfigureAwait(false);
+                }
 
                 Session.IsCleanSession = false;
 
@@ -159,6 +165,19 @@ namespace MQTTnet.Server
                     Interlocked.Increment(ref _sentPacketsCount);
                     _lastPacketReceivedTimestamp = DateTime.UtcNow;
 
+                    if (packet is MqttAuthPacket clientAuthPacket) {
+                        if (_serverOptions.EnhancedAuthenticationBrokerHandler == null) {
+                            continue;
+                        }
+
+                        var responsePacket = _serverOptions.EnhancedAuthenticationBrokerHandler.HandleAuth(clientAuthPacket, Session.Items);
+                        if (authPacket is MqttConnAckPacket connAckPacket) {
+                            connAckPacket.IsSessionPresent = !Session.IsCleanSession;
+                        }
+
+                        await SendAsync(responsePacket).ConfigureAwait(false);
+                        continue;
+                    }
                     if (!(packet is MqttPingReqPacket || packet is MqttPingRespPacket))
                     {
                         _lastNonKeepAlivePacketReceivedTimestamp = _lastPacketReceivedTimestamp;

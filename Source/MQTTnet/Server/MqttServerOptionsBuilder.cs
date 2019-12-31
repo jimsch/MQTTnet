@@ -2,6 +2,7 @@
 using System.Net;
 using System.Net.Security;
 using System.Security.Authentication;
+using MQTTnet.Server.ExtendedAuthenticationExchange;
 
 namespace MQTTnet.Server
 {
@@ -134,6 +135,12 @@ namespace MQTTnet.Server
         public MqttServerOptionsBuilder WithConnectionValidator(Action<MqttConnectionValidatorContext> value)
         {
             _options.ConnectionValidator = new MqttServerConnectionValidatorDelegate(value);
+            return this;
+        }
+
+        public MqttServerOptionsBuilder WithEnhancedAuthenticationHandler(IMqttEnhancedAuthenticationBrokerHandler handler)
+        {
+            _options.EnhancedAuthenticationBrokerHandler = handler;
             return this;
         }
 

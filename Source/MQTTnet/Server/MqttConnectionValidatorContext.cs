@@ -22,6 +22,7 @@ namespace MQTTnet.Server
         }
 
         public IMqttChannelAdapter ClientAdapter => _clientAdapter;
+        public MqttConnectPacket ConnectPacket => _connectPacket;
 
         public string ClientId => _connectPacket.ClientId;
 

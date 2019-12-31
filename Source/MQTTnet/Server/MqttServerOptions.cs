@@ -1,4 +1,5 @@
 ﻿using System;
+using MQTTnet.Server.ExtendedAuthenticationExchange;
 
 namespace MQTTnet.Server
 {
@@ -19,6 +20,8 @@ namespace MQTTnet.Server
         public TimeSpan DefaultCommunicationTimeout { get; set; } = TimeSpan.FromSeconds(15);
 
         public IMqttServerConnectionValidator ConnectionValidator { get; set; }
+
+        public IMqttEnhancedAuthenticationBrokerHandler EnhancedAuthenticationBrokerHandler { get; set; }
 
         public IMqttServerApplicationMessageInterceptor ApplicationMessageInterceptor { get; set; }
         
