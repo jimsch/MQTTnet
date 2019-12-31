@@ -267,21 +267,13 @@ namespace MQTTnet.Adapter
             }
         }
 
-        public void Dispose()
+        public void Dispose(bool disposing)
         {
-            _isDisposed = true;
-
-            Channel?.Dispose();
-        }
-
-        private void ThrowIfDisposed()
-        {
-            if (disposing)
-            {
-                _channel?.Dispose();
+            if (disposing) {
+                Channel?.Dispose();
             }
-            base.Dispose(disposing);
         }
+
 
         private static bool IsWrappedException(Exception exception)
         {
