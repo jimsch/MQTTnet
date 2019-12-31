@@ -16,7 +16,7 @@ using MQTTnet.Server;
 
 namespace MQTTnet.Extensions.ManagedClient
 {
-    public class ManagedMqttClient : IManagedMqttClient
+    public class ManagedMqttClient : Disposable, IManagedMqttClient
     {
         private readonly BlockingQueue<ManagedMqttApplicationMessage> _messageQueue = new BlockingQueue<ManagedMqttApplicationMessage>();
 
@@ -42,9 +42,7 @@ namespace MQTTnet.Extensions.ManagedClient
         private Task _maintainConnectionTask;
 
         private ManagedMqttClientStorageManager _storageManager;
-
-        private bool _disposed;
-
+        
         public ManagedMqttClient(IMqttClient mqttClient, IMqttNetChildLogger logger)
         {
             _mqttClient = mqttClient ?? throw new ArgumentNullException(nameof(mqttClient));
@@ -91,10 +89,6 @@ namespace MQTTnet.Extensions.ManagedClient
             if (options == null) throw new ArgumentNullException(nameof(options));
             if (options.ClientOptions == null) throw new ArgumentException("The client options are not set.", nameof(options));
 
-            if (!options.ClientOptions.CleanSession)
-            {
-                throw new NotSupportedException("The managed client does not support existing sessions.");
-            }
 
             if (!_maintainConnectionTask?.IsCompleted ?? false) throw new InvalidOperationException("The managed client is already started.");
 
@@ -150,6 +144,7 @@ namespace MQTTnet.Extensions.ManagedClient
             ThrowIfDisposed();
 
             if (applicationMessage == null) throw new ArgumentNullException(nameof(applicationMessage));
+            if (Options == null) throw new InvalidOperationException("call StartAsync before publishing messages");
 
             MqttTopicValidator.ThrowIfInvalid(applicationMessage.ApplicationMessage.Topic);
 
@@ -242,36 +237,25 @@ namespace MQTTnet.Extensions.ManagedClient
             return Task.FromResult(0);
         }
 
-        public void Dispose()
+        protected override void Dispose(bool disposing)
         {
-            if (_disposed)
+            if (disposing)
             {
-                return;
+                StopPublishing();
+                StopMaintainingConnection();
+
+                if (_maintainConnectionTask != null)
+                {
+                    _maintainConnectionTask.GetAwaiter().GetResult();
+                    _maintainConnectionTask = null;
+                }
+
+                _messageQueue.Dispose();
+                _messageQueueLock.Dispose();
+                _mqttClient.Dispose();
+                _subscriptionsQueuedSignal.Dispose();
             }
-
-            _disposed = true;
-
-            StopPublishing();
-            StopMaintainingConnection();
-
-            if (_maintainConnectionTask != null)
-            {
-                Task.WaitAny(_maintainConnectionTask);
-                _maintainConnectionTask = null;
-            }
-
-            _messageQueue.Dispose();
-            _messageQueueLock.Dispose();
-            _mqttClient.Dispose();
-            _subscriptionsQueuedSignal.Dispose();
-        }
-
-        private void ThrowIfDisposed()
-        {
-            if (_disposed)
-            {
-                throw new ObjectDisposedException(nameof(ManagedMqttClient));
-            }
+            base.Dispose(disposing);
         }
 
         private async Task MaintainConnectionAsync(CancellationToken cancellationToken)
@@ -292,7 +276,7 @@ namespace MQTTnet.Extensions.ManagedClient
             }
             finally
             {
-                if (!_disposed)
+                if (!IsDisposed)
                 {
                     try
                     {
@@ -329,6 +313,12 @@ namespace MQTTnet.Extensions.ManagedClient
                 if (connectionState == ReconnectionResult.Reconnected)
                 {
                     await PublishReconnectSubscriptionsAsync().ConfigureAwait(false);
+                    StartPublishing();
+                    return;
+                }
+
+                if (connectionState == ReconnectionResult.Recovered)
+                {
                     StartPublishing();
                     return;
                 }
@@ -544,8 +534,8 @@ namespace MQTTnet.Extensions.ManagedClient
 
             try
             {
-                await _mqttClient.ConnectAsync(Options.ClientOptions).ConfigureAwait(false);
-                return ReconnectionResult.Reconnected;
+                var result = await _mqttClient.ConnectAsync(Options.ClientOptions).ConfigureAwait(false);
+                return result.IsSessionPresent ? ReconnectionResult.Recovered : ReconnectionResult.Reconnected;
             }
             catch (Exception exception)
             {
