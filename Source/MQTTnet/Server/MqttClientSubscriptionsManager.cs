@@ -47,7 +47,7 @@ namespace MQTTnet.Server
                 if (finalTopicFilter == null || string.IsNullOrEmpty(finalTopicFilter.Topic) || !interceptorContext.AcceptSubscription)
                 {
                     result.ResponsePacket.ReturnCodes.Add(MqttSubscribeReturnCode.Failure);
-                    result.ResponsePacket.ReasonCodes.Add(MqttSubscribeReasonCode.UnspecifiedError);
+                    result.ResponsePacket.ReasonCodes.Add((int) interceptorContext.ReasonCode < 128 ? MqttSubscribeReasonCode.UnspecifiedError : interceptorContext.ReasonCode);
                 }
                 else
                 {

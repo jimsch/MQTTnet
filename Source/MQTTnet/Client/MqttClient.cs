@@ -158,7 +158,8 @@ namespace MQTTnet.Client
                     AuthenticationData = data.AuthenticationData,
                     ReasonString = data.ReasonString,
                     UserProperties = data.UserProperties
-                }
+                },
+                ReasonCode = data.ReasonCode
             }, cancellationToken);
         }
 

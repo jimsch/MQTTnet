@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using MQTTnet.Protocol;
 
 namespace MQTTnet.Server
 {
@@ -9,6 +10,7 @@ namespace MQTTnet.Server
             ClientId = clientId;
             TopicFilter = topicFilter;
             SessionItems = sessionItems;
+            ReasonCode = (MqttSubscribeReasonCode) topicFilter.QualityOfServiceLevel;
         }
 
         public string ClientId { get; }
@@ -20,6 +22,7 @@ namespace MQTTnet.Server
         /// </summary>
         public IDictionary<object, object> SessionItems { get; }
 
+        public MqttSubscribeReasonCode ReasonCode { get; set; } 
         public bool AcceptSubscription { get; set; } = true;
 
         public bool CloseConnection { get; set; }
